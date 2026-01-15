@@ -85,8 +85,12 @@ on:
         description: "自定义内核名称（选填，例如 -android14-11-o-g1132d864665d）"
         required: false
         default: ''
+      KSU_VERSION:
+        description: "自定义 SukiSU 版本号署名（选填，将显示在 Manager 首页，例如 v3.2.0-MyBuild）"
+        required: false
+        default: ''
       SUKISU_REF:
-        description: "自定义 SukiSU 版本（选填，例如 v4.1.0 或 commit hash）"
+        description: "自定义 SukiSU 源码版本（选填，例如 v4.1.0 或 commit hash）"
         required: false
         default: ''
       SUSFS_REF:
@@ -204,6 +208,9 @@ jobs:
           fi
           cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
+          if [ -n "${{ github.event.inputs.KSU_VERSION }}" ]; then
+            KSU_VERSION="${{ github.event.inputs.KSU_VERSION }}"
+          fi
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
