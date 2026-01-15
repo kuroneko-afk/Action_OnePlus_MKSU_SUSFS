@@ -81,6 +81,18 @@ on:
          - "6.1"
          - "6.6"
          - "6.12"
+      KERNEL_NAME:
+        description: "自定义内核名称（选填，例如 -android14-11-o-g1132d864665d）"
+        required: false
+        default: ''
+      SUKISU_REF:
+        description: "自定义 SukiSU 版本（选填，例如 v4.1.0 或 commit hash）"
+        required: false
+        default: ''
+      SUSFS_REF:
+        description: "自定义 SUSFS 版本（选填，例如 v1.5.2 或 commit hash）"
+        required: false
+        default: ''
       BUILD_METHOD:
         type: choice
         description: "编译方式"
@@ -184,7 +196,12 @@ jobs:
       - name: Add KernelSU-SukiSU Ultra
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          SETUP_URL="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
+          if [ -n "${{ github.event.inputs.SUKISU_REF }}" ]; then
+            curl -LSs "$SETUP_URL" | bash -s -- "${{ github.event.inputs.SUKISU_REF }}"
+          else
+            curl -LSs "$SETUP_URL" | bash -s builtin
+          fi
           cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -195,6 +212,12 @@ jobs:
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+          if [ -n "${{ github.event.inputs.SUSFS_REF }}" ]; then
+            cd susfs4ksu
+            git fetch --tags --force
+            git checkout "${{ github.event.inputs.SUSFS_REF }}"
+            cd ..
+          fi
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
           cd kernel_platform
           echo "正在给内核打susfs补丁"
@@ -235,6 +258,10 @@ jobs:
       - name: Add Configuration Settings
         run: |
           cd kernel_workspace/kernel_platform
+          if [ -n "${{ github.event.inputs.KERNEL_NAME }}" ]; then
+             sed -i '$s|echo "\$res"|echo "\${{ github.event.inputs.KERNEL_NAME }}"|' ./common/scripts/setlocalversion
+             sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+          fi
           CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
           KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
 
