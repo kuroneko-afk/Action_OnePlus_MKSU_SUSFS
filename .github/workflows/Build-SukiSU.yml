@@ -202,7 +202,11 @@ jobs:
           cd kernel_workspace/kernel_platform
           SETUP_URL="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
           if [ -n "${{ github.event.inputs.SUKISU_REF }}" ]; then
-            curl -LSs "$SETUP_URL" | bash -s -- "${{ github.event.inputs.SUKISU_REF }}"
+            SUKISU_TARGET="${{ github.event.inputs.SUKISU_REF }}"
+            if echo "$SUKISU_TARGET" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              SUKISU_TARGET="v$SUKISU_TARGET"
+            fi
+            curl -LSs "$SETUP_URL" | bash -s -- "$SUKISU_TARGET"
           else
             curl -LSs "$SETUP_URL" | bash -s builtin
           fi
@@ -221,8 +225,20 @@ jobs:
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
           if [ -n "${{ github.event.inputs.SUSFS_REF }}" ]; then
             cd susfs4ksu
-            git fetch --tags --force
-            git checkout "${{ github.event.inputs.SUSFS_REF }}"
+            SUSFS_TARGET="${{ github.event.inputs.SUSFS_REF }}"
+            git fetch --tags --force --prune --unshallow || git fetch --tags --force --prune
+            if echo "$SUSFS_TARGET" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+              SUSFS_TARGET="v${SUSFS_TARGET#v}"
+              SUSFS_COMMIT=$(git log --format=%H -S "#define SUSFS_VERSION \"$SUSFS_TARGET\"" -- kernel_patches/include/linux/susfs.h | head -n 1)
+              if [ -n "$SUSFS_COMMIT" ]; then
+                git checkout "$SUSFS_COMMIT"
+              else
+                echo "SUSFS version not found in history: $SUSFS_TARGET"
+                git checkout "$SUSFS_TARGET" || exit 1
+              fi
+            else
+              git checkout "$SUSFS_TARGET"
+            fi
             cd ..
           fi
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
